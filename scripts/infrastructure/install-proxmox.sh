@@ -17,20 +17,136 @@ echo "       For Homelab Automation Project"
 echo "================================================================"
 echo ""
 
-# Set variables
+# Function to detect primary network interface
+detect_primary_interface() {
+  # Try to detect the primary interface used for internet connection
+  PRIMARY_INTERFACE=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'dev \K\S+' | head -1)
+  
+  # Fallback to the first non-loopback interface if detection fails
+  if [ -z "$PRIMARY_INTERFACE" ]; then
+    PRIMARY_INTERFACE=$(ip -o link show | grep -v "lo" | awk '{print $2}' | sed 's/://' | head -1)
+  fi
+  
+  echo $PRIMARY_INTERFACE
+}
+
+# Function to get current network configuration
+get_current_network_config() {
+  local interface=$1
+  
+  # Get current IP address
+  CURRENT_IP=$(ip -4 addr show $interface | grep -oP 'inet \K[^/]+')
+  
+  # Get current netmask in CIDR notation
+  CURRENT_CIDR=$(ip -4 addr show $interface | grep -oP 'inet [0-9.]+/\K[0-9]+')
+  
+  # Convert CIDR to netmask
+  if [ -n "$CURRENT_CIDR" ]; then
+    CURRENT_NETMASK=$(cidr_to_netmask $CURRENT_CIDR)
+  else
+    CURRENT_NETMASK="255.255.255.0"  # Default fallback
+  fi
+  
+  # Get current gateway
+  CURRENT_GATEWAY=$(ip route | grep default | grep $interface | awk '{print $3}')
+  
+  # Get current DNS server
+  CURRENT_DNS=$(grep -oP 'nameserver \K[^\s]+' /etc/resolv.conf | head -1)
+  if [ -z "$CURRENT_DNS" ]; then
+    CURRENT_DNS="1.1.1.1"  # Default fallback
+  fi
+}
+
+# Function to convert CIDR to netmask
+cidr_to_netmask() {
+  local cidr=$1
+  local mask=""
+  local full_octets=$((cidr/8))
+  local partial_octet=$((cidr%8))
+  
+  for ((i=0; i<4; i++)); do
+    if [ $i -lt $full_octets ]; then
+      mask="${mask}255."
+    elif [ $i -eq $full_octets ]; then
+      mask="${mask}$((256 - 2**(8-partial_octet)))."
+    else
+      mask="${mask}0."
+    fi
+  done
+  
+  echo "${mask%.}"
+}
+
+# Set default variables
 HOSTNAME="proxmox"
-IP_ADDRESS="192.168.1.100"  # Change to your desired IP
-NETMASK="255.255.255.0"     # Change based on your network
-GATEWAY="192.168.1.1"       # Change to your gateway
-DNS_SERVER="1.1.1.1"        # Can be changed to your preferred DNS
+INTERFACE=$(detect_primary_interface)
+CONFIG_MODE="auto"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --hostname=*)
+      HOSTNAME="${1#*=}"
+      shift
+      ;;
+    --ip=*)
+      IP_ADDRESS="${1#*=}"
+      CONFIG_MODE="manual"
+      shift
+      ;;
+    --netmask=*)
+      NETMASK="${1#*=}"
+      shift
+      ;;
+    --gateway=*)
+      GATEWAY="${1#*=}"
+      shift
+      ;;
+    --dns=*)
+      DNS_SERVER="${1#*=}"
+      shift
+      ;;
+    --interface=*)
+      INTERFACE="${1#*=}"
+      shift
+      ;;
+    --dhcp)
+      CONFIG_MODE="dhcp"
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+# Get current network configuration if using auto mode
+if [ "$CONFIG_MODE" = "auto" ]; then
+  get_current_network_config $INTERFACE
+  IP_ADDRESS=${CURRENT_IP:-"192.168.1.100"}
+  NETMASK=${CURRENT_NETMASK:-"255.255.255.0"}
+  GATEWAY=${CURRENT_GATEWAY:-"192.168.1.1"}
+  DNS_SERVER=${CURRENT_DNS:-"1.1.1.1"}
+elif [ "$CONFIG_MODE" = "manual" ]; then
+  # Use provided IP, but set defaults for any missing values
+  NETMASK=${NETMASK:-"255.255.255.0"}
+  GATEWAY=${GATEWAY:-"192.168.1.1"}
+  DNS_SERVER=${DNS_SERVER:-"1.1.1.1"}
+fi
 
 # Confirm settings with user
 echo "This script will install Proxmox VE with the following settings:"
 echo "Hostname: $HOSTNAME"
-echo "IP Address: $IP_ADDRESS"
-echo "Netmask: $NETMASK"
-echo "Gateway: $GATEWAY"
-echo "DNS Server: $DNS_SERVER"
+echo "Network Interface: $INTERFACE"
+if [ "$CONFIG_MODE" = "dhcp" ]; then
+  echo "Network Configuration: DHCP (IP will be assigned automatically)"
+else
+  echo "IP Address: $IP_ADDRESS"
+  echo "Netmask: $NETMASK"
+  echo "Gateway: $GATEWAY"
+  echo "DNS Server: $DNS_SERVER"
+fi
 echo ""
 read -p "Continue with these settings? (y/n): " CONFIRM
 if [[ $CONFIRM != "y" && $CONFIRM != "Y" ]]; then
@@ -60,20 +176,43 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi
 
 # Setup networking
 echo "Configuring network..."
-cat > /etc/network/interfaces << EOF
+if [ "$CONFIG_MODE" = "dhcp" ]; then
+  # Configure for DHCP
+  cat > /etc/network/interfaces << EOF
 auto lo
 iface lo inet loopback
 
-auto eno1
-iface eno1 inet static
+auto $INTERFACE
+iface $INTERFACE inet dhcp
+EOF
+else
+  # Configure for static IP
+  cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto $INTERFACE
+iface $INTERFACE inet static
         address $IP_ADDRESS
         netmask $NETMASK
         gateway $GATEWAY
 EOF
+fi
 
 # Update hosts file
 echo "Updating /etc/hosts..."
-cat > /etc/hosts << EOF
+if [ "$CONFIG_MODE" = "dhcp" ]; then
+  # For DHCP, we'll use localhost for now and let the system update it later
+  cat > /etc/hosts << EOF
+127.0.0.1 localhost $HOSTNAME.homelab $HOSTNAME
+
+# The following lines are desirable for IPv6 capable hosts
+::1     localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+EOF
+else
+  cat > /etc/hosts << EOF
 127.0.0.1 localhost
 $IP_ADDRESS $HOSTNAME.homelab $HOSTNAME
 
@@ -82,6 +221,7 @@ $IP_ADDRESS $HOSTNAME.homelab $HOSTNAME
 ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 EOF
+fi
 
 # Set hostname
 echo "Setting hostname..."
@@ -90,9 +230,11 @@ hostnamectl set-hostname $HOSTNAME
 
 # Configure DNS
 echo "Configuring DNS..."
-cat > /etc/resolv.conf << EOF
+if [ "$CONFIG_MODE" != "dhcp" ]; then
+  cat > /etc/resolv.conf << EOF
 nameserver $DNS_SERVER
 EOF
+fi
 
 # Disable enterprise repository and enable no-subscription repository
 echo "Configuring repositories for non-subscription use..."
@@ -118,8 +260,14 @@ apt update && apt upgrade -y
 echo ""
 echo "================================================================"
 echo "Proxmox VE installation completed!"
-echo "The system will reboot in 10 seconds. After reboot, you can"
-echo "access the Proxmox web interface at: https://$IP_ADDRESS:8006"
+if [ "$CONFIG_MODE" = "dhcp" ]; then
+  echo "The system will reboot in 10 seconds. After reboot, check your"
+  echo "router for the assigned IP and access the web interface at:"
+  echo "https://YOUR_DHCP_IP:8006"
+else
+  echo "The system will reboot in 10 seconds. After reboot, you can"
+  echo "access the Proxmox web interface at: https://$IP_ADDRESS:8006"
+fi
 echo "Default login: root (with your system's root password)"
 echo "================================================================"
 
