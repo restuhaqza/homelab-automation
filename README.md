@@ -2,6 +2,16 @@
 
 A collection of scripts for automating and configuring homelab server environments.
 
+## Current Hardware
+
+This homelab currently runs on a single instance:
+- Lenovo ThinkCentre m720q Tiny Form Factor
+- Intel Core i7-8700T processor (8th Gen, 6 cores/12 threads)
+- 32 GB DDR4 RAM (2x16GB configuration)
+- 1 TB SSD
+- Intel UHD Graphics 630
+- Gigabit Ethernet
+
 ## XRDP Multi-Session Setup
 
 This repository contains a script to set up Remote Desktop Protocol (XRDP) with multi-session support on Linux systems, specifically optimized for ParrotSec with MATE desktop.
@@ -82,7 +92,7 @@ If you encounter issues:
 
 ### Phase 1: Core Infrastructure
 - [x] XRDP Multi-Session Setup for Linux servers
-- [ ] Proxmox VE installation and initial configuration
+- [x] Proxmox VE installation and initial configuration
 - [ ] Docker and Portainer deployment script
 - [ ] Infrastructure network configuration (VLANs, firewall setup)
 - [ ] Basic monitoring with Prometheus and Grafana
