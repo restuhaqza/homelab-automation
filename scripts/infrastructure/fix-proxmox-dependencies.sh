@@ -71,8 +71,45 @@ if [ $? -ne 0 ]; then
   apt-get -f install -y
 fi
 
-echo "5. Fixing any remaining broken packages"
+echo "5. Properly configuring Proxmox repositories"
+# Create proper repository files for Proxmox
+echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
+
+# Download and add the repository key
+wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | apt-key add -
+
+# Create a dummy enterprise repository to prevent errors
+touch /etc/apt/sources.list.d/pve-enterprise.list
+echo "# This file intentionally left empty to prevent errors" > /etc/apt/sources.list.d/pve-enterprise.list
+
+# Update repositories
+apt-get update
+
+echo "6. Pre-configuring PVE kernel installation"
+# Try to download and pre-install the PVE kernel
+wget -q http://download.proxmox.com/debian/pve/dists/bullseye/pve-no-subscription/binary-amd64/pve-kernel-5.15_5.15.102-1_amd64.deb || true
+if [ -f pve-kernel-5.15_5.15.102-1_amd64.deb ]; then
+  echo "Installing PVE kernel package directly..."
+  dpkg -i pve-kernel-5.15_5.15.102-1_amd64.deb || true
+  apt-get -f install -y
+fi
+
+echo "7. Preparing for PVE service initialization"
+# Create required directories if they don't exist
+mkdir -p /etc/pve
+mkdir -p /var/lib/pve-cluster
+mkdir -p /var/lib/pve-manager
+
+# Pre-create service symlinks
+mkdir -p /etc/systemd/system/multi-user.target.wants
+ln -sf /lib/systemd/system/pve-cluster.service /etc/systemd/system/multi-user.target.wants/pve-cluster.service 2>/dev/null || true
+ln -sf /lib/systemd/system/pvedaemon.service /etc/systemd/system/multi-user.target.wants/pvedaemon.service 2>/dev/null || true
+ln -sf /lib/systemd/system/pveproxy.service /etc/systemd/system/multi-user.target.wants/pveproxy.service 2>/dev/null || true
+ln -sf /lib/systemd/system/pvestatd.service /etc/systemd/system/multi-user.target.wants/pvestatd.service 2>/dev/null || true
+
+echo "8. Fixing any remaining broken packages"
 apt-get --fix-broken install -y
+apt-get autoremove -y
 
 # Clean up
 cd - > /dev/null
