@@ -95,6 +95,7 @@ If you encounter issues:
 - [x] Proxmox VE installation and initial configuration
 - [x] Code-Server (VS Code in browser) installation 
 - [x] Nginx web server and reverse proxy setup
+- [x] Local DNS setup with mDNS and Dnsmasq options
 - [ ] Docker and Portainer deployment script
 - [ ] Infrastructure network configuration (VLANs, firewall setup)
 - [ ] Basic monitoring with Prometheus and Grafana
