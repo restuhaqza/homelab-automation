@@ -596,17 +596,16 @@ fi
 echo "Running final system update..."
 apt update && apt upgrade -y
 
-# Reboot notice
+# Installation complete notice
 echo ""
 echo "================================================================"
 echo "Proxmox VE installation completed!"
 if [ "$CONFIG_MODE" = "dhcp" ]; then
-  echo "The system will reboot in 10 seconds. After reboot, check your"
-  echo "router for the assigned IP and access the web interface at:"
-  echo "https://YOUR_DHCP_IP:8006"
+  echo "After reboot, check your router for the assigned IP"
+  echo "and access the web interface at: https://YOUR_DHCP_IP:8006"
 else
-  echo "The system will reboot in 10 seconds. After reboot, you can"
-  echo "access the Proxmox web interface at: https://$IP_ADDRESS:8006"
+  echo "After reboot, you can access the Proxmox web interface at:"
+  echo "https://$IP_ADDRESS:8006"
 fi
 echo "Default login: root (with your system's root password)"
 echo "================================================================"
@@ -616,6 +615,14 @@ cp "$INSTALL_LOG" "$FINAL_LOG"
 echo "Installation log saved to $FINAL_LOG"
 echo "Installation log also available at $INSTALL_LOG"
 
-# Reboot
-sleep 10
-reboot 
+# Ask before rebooting
+echo ""
+read -p "Do you want to reboot the system now? (y/n): " REBOOT_CHOICE
+if [[ $REBOOT_CHOICE == "y" || $REBOOT_CHOICE == "Y" ]]; then
+  echo "Rebooting in 5 seconds..."
+  sleep 5
+  reboot
+else
+  echo "Reboot skipped. Please reboot manually when ready to complete the installation."
+  echo "You can reboot by running: sudo reboot"
+fi 
