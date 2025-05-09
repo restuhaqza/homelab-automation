@@ -30,24 +30,24 @@ Our script provides a flexible Nginx installation with options for reverse proxy
 
 3. Run the script with desired options:
 
-   **Basic web server:**
+   **Basic web server (with SSL enabled by default):**
    ```bash
    sudo scripts/infrastructure/install-nginx.sh --server-name homelab.local
    ```
 
-   **With SSL:**
+   **Without SSL:**
    ```bash
-   sudo scripts/infrastructure/install-nginx.sh --server-name homelab.local --enable-ssl
+   sudo scripts/infrastructure/install-nginx.sh --server-name homelab.local --disable-ssl
    ```
 
-   **As reverse proxy:**
+   **As reverse proxy (with SSL enabled by default):**
    ```bash
    sudo scripts/infrastructure/install-nginx.sh --server-name homelab.local --setup-reverse-proxy --proxy-target localhost --proxy-port 8080
    ```
 
-   **Reverse proxy with SSL:**
+   **Reverse proxy without SSL:**
    ```bash
-   sudo scripts/infrastructure/install-nginx.sh --server-name homelab.local --setup-reverse-proxy --proxy-target localhost --proxy-port 8080 --enable-ssl
+   sudo scripts/infrastructure/install-nginx.sh --server-name homelab.local --setup-reverse-proxy --proxy-target localhost --proxy-port 8080 --disable-ssl
    ```
 
 4. Follow the on-screen prompts to confirm settings.
@@ -57,7 +57,7 @@ Our script provides a flexible Nginx installation with options for reverse proxy
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--server-name` | Domain name for the server | `--server-name example.com` |
-| `--enable-ssl` | Enable SSL with self-signed certificates | `--enable-ssl` |
+| `--disable-ssl` | Disable SSL (enabled by default) | `--disable-ssl` |
 | `--setup-reverse-proxy` | Configure as reverse proxy | `--setup-reverse-proxy` |
 | `--proxy-target` | Target host for reverse proxy | `--proxy-target localhost` |
 | `--proxy-port` | Target port for reverse proxy | `--proxy-port 8080` |
@@ -69,10 +69,10 @@ Our script provides a flexible Nginx installation with options for reverse proxy
 To set up Nginx as a reverse proxy for code-server (installed on the same machine):
 
 ```bash
-sudo scripts/infrastructure/install-nginx.sh --server-name code.homelab.local --setup-reverse-proxy --proxy-target localhost --proxy-port 8080 --enable-ssl
+sudo scripts/infrastructure/install-nginx.sh --server-name code.homelab.local --setup-reverse-proxy --proxy-target localhost --proxy-port 8080
 ```
 
-This will create a secure (HTTPS) reverse proxy to your code-server instance.
+This will create a secure (HTTPS) reverse proxy to your code-server instance with SSL enabled by default.
 
 ### Hosting Multiple Services
 

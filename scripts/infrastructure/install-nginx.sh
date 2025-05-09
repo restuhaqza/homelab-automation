@@ -22,7 +22,7 @@ NGINX_USER="www-data"
 NGINX_CONF_DIR="/etc/nginx"
 SITES_AVAILABLE_DIR="$NGINX_CONF_DIR/sites-available"
 SITES_ENABLED_DIR="$NGINX_CONF_DIR/sites-enabled"
-ENABLE_SSL=false
+ENABLE_SSL=true  # SSL enabled by default
 DEFAULT_SERVER_NAME="homelab.local"
 DEFAULT_PORT=80
 DEFAULT_SSL_PORT=443
@@ -37,8 +37,8 @@ while [[ $# -gt 0 ]]; do
       DEFAULT_SERVER_NAME="$2"
       shift 2
       ;;
-    --enable-ssl)
-      ENABLE_SSL=true
+    --disable-ssl)  # New flag to disable SSL
+      ENABLE_SSL=false
       shift
       ;;
     --setup-reverse-proxy)
