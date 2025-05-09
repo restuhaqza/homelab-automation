@@ -197,6 +197,16 @@ health_check() {
     else
       echo "  ✗ $service is not running"
       issues=$((issues+1))
+      
+      # Try to start the service if it's not running
+      echo "    Attempting to start $service..."
+      systemctl start $service
+      if systemctl is-active --quiet $service; then
+        echo "    ✓ Successfully started $service"
+      else
+        echo "    ✗ Failed to start $service. Checking logs..."
+        journalctl -u $service --no-pager -n 10
+      fi
     fi
   done
 
@@ -206,6 +216,58 @@ health_check() {
   else
     echo "  ✗ KVM virtualization is not available"
     issues=$((issues+1))
+    
+    # Check if virtualization is enabled in BIOS/UEFI
+    if ! grep -q -E 'svm|vmx' /proc/cpuinfo; then
+      echo "    ✗ CPU virtualization features not detected. Please enable virtualization in BIOS/UEFI."
+    else
+      echo "    ✓ CPU virtualization features detected"
+      echo "    Attempting to load KVM module..."
+      modprobe kvm
+      if [ $? -eq 0 ]; then
+        echo "    ✓ KVM module loaded successfully"
+      else
+        echo "    ✗ Failed to load KVM module"
+      fi
+    fi
+  fi
+
+  # Additional checks for common issues
+  echo "Performing additional system checks..."
+
+  # Check kernel compatibility
+  if uname -r | grep -q "pve"; then
+    echo "  ✓ Running PVE kernel: $(uname -r)"
+  else
+    echo "  ✗ Not running PVE kernel: $(uname -r)"
+    echo "    Checking if PVE kernel is installed..."
+    if dpkg -l | grep -q "pve-kernel"; then
+      echo "    ✓ PVE kernel is installed, but not active"
+      echo "    You will need to reboot to use the PVE kernel"
+    else
+      echo "    ✗ PVE kernel not installed"
+      echo "    Attempting to install PVE kernel..."
+      apt-get install -y pve-kernel
+    fi
+  fi
+
+  # Check if all required packages are installed
+  echo "Verifying Proxmox VE packages..."
+  local missing_packages=0
+  for pkg in proxmox-ve libpve-access-control libpve-common-perl libpve-guest-common-perl libpve-http-server-perl libpve-storage-perl pve-container pve-firewall pve-ha-manager pve-i18n pve-manager pve-xtermjs qemu-server; do
+    if ! dpkg -l | grep -q "ii  $pkg"; then
+      echo "  ✗ Package $pkg is missing or not properly installed"
+      missing_packages=$((missing_packages+1))
+    fi
+  done
+  
+  if [ $missing_packages -gt 0 ]; then
+    echo "  Found $missing_packages missing packages. Attempting to repair installation..."
+    apt-get update
+    apt-get install -y proxmox-ve
+    apt-get install -f
+  else
+    echo "  ✓ All essential Proxmox packages appear to be installed"
   fi
 
   # Check disk space
@@ -217,6 +279,17 @@ health_check() {
   echo "Checking available memory..."
   local available_mem=$(free -h | awk '/^Mem:/ {print $7}')
   echo "  ✓ Available memory: $available_mem"
+
+  # Verify open ports
+  echo "Checking if required ports are open..."
+  if command -v netstat &> /dev/null; then
+    if netstat -tuln | grep -q ":8006"; then
+      echo "  ✓ Web interface port 8006 is open"
+    else
+      echo "  ✗ Web interface port 8006 is not open"
+      issues=$((issues+1))
+    fi
+  fi
 
   # Verify API connectivity (may not be fully up yet)
   echo "Checking Proxmox API access..."
@@ -230,6 +303,10 @@ health_check() {
   echo "Health check completed with $issues issues found."
   if [ $issues -gt 0 ]; then
     echo "Warning: Some issues were detected. Check the logs for more details."
+    echo "You may need to run the following to troubleshoot further:"
+    echo "  systemctl status pve*"
+    echo "  journalctl -xeu pve*"
+    echo "Consider adding '--reinstall' when running apt-get install proxmox-ve"
   else
     echo "All checks passed successfully!"
   fi
