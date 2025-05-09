@@ -10,12 +10,132 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# Detect distribution
+detect_distro() {
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO_NAME=$ID
+    DISTRO_VERSION=$VERSION_ID
+    DISTRO_CODENAME=$VERSION_CODENAME
+  elif [ -f /etc/lsb-release ]; then
+    . /etc/lsb-release
+    DISTRO_NAME=$DISTRIB_ID
+    DISTRO_VERSION=$DISTRIB_RELEASE
+    DISTRO_CODENAME=$DISTRIB_CODENAME
+  else
+    DISTRO_NAME=$(uname -s)
+    DISTRO_VERSION=$(uname -r)
+  fi
+  
+  echo "Detected distribution: $DISTRO_NAME $DISTRO_VERSION ($DISTRO_CODENAME)"
+  
+  # Check if this is a supported Debian-based distribution
+  if [[ "$DISTRO_NAME" != "debian" && "$DISTRO_NAME" != "ubuntu" && "$DISTRO_NAME" != "parrot" ]]; then
+    echo "WARNING: This script is primarily designed for Debian. Other distributions may have compatibility issues."
+    read -p "Continue anyway? (y/n): " CONTINUE_UNSUPPORTED
+    if [[ $CONTINUE_UNSUPPORTED != "y" && $CONTINUE_UNSUPPORTED != "Y" ]]; then
+      echo "Installation aborted."
+      exit 1
+    fi
+  fi
+  
+  # Special handling for ParrotSec
+  if [[ "$DISTRO_NAME" == "parrot" ]]; then
+    echo "ParrotSec detected. Adding special handling for potential conflicts."
+    PARROT_SYSTEM=true
+  else
+    PARROT_SYSTEM=false
+  fi
+}
+
+# Function to handle dependency conflicts
+handle_dependencies() {
+  echo "Checking for potential dependency conflicts..."
+  
+  # List of packages that might conflict with Proxmox VE
+  CONFLICTING_PACKAGES="virtualbox-* docker* lxc* lxd* nvidia-* xen* libvirt* qemu* virt-manager systemd-coredump"
+  
+  # Check if any conflicting packages are installed
+  FOUND_CONFLICTS=false
+  for pkg in $CONFLICTING_PACKAGES; do
+    if dpkg -l | grep -q "$pkg"; then
+      echo "  ⚠️ Potential conflict detected: $pkg"
+      FOUND_CONFLICTS=true
+    fi
+  done
+  
+  if $FOUND_CONFLICTS; then
+    echo "Conflicting packages detected that may interfere with Proxmox installation."
+    echo "Options:"
+    echo "  1. Remove conflicting packages (recommended)"
+    echo "  2. Try to install anyway (may cause problems)"
+    echo "  3. Abort installation"
+    read -p "Select an option (1-3): " CONFLICT_OPTION
+    
+    case $CONFLICT_OPTION in
+      1)
+        echo "Removing conflicting packages..."
+        for pkg in $CONFLICTING_PACKAGES; do
+          if dpkg -l | grep -q "$pkg"; then
+            apt-get remove --purge -y $pkg
+          fi
+        done
+        apt-get autoremove -y
+        ;;
+      2)
+        echo "Proceeding with installation despite conflicts..."
+        ;;
+      3)
+        echo "Installation aborted due to potential conflicts."
+        exit 1
+        ;;
+      *)
+        echo "Invalid option. Aborting installation."
+        exit 1
+        ;;
+    esac
+  else
+    echo "  ✓ No obvious conflicts detected."
+  fi
+  
+  # Check for systemd issues (common in some security distros)
+  if systemctl --version | grep -q "systemd 24[6-9]" || systemctl --version | grep -q "systemd 25[0-9]"; then
+    echo "  ⚠️ Notice: Your systemd version may have compatibility issues with Proxmox."
+    echo "     Consider downgrading systemd or using a standard Debian installation."
+  fi
+  
+  # Special handling for ParrotSec
+  if $PARROT_SYSTEM; then
+    echo "ParrotSec-specific preparations:"
+    echo "  - Ensuring standard repositories are available"
+    if ! grep -q "deb http://deb.debian.org/debian bullseye main" /etc/apt/sources.list; then
+      echo "deb http://deb.debian.org/debian bullseye main" >> /etc/apt/sources.list
+    fi
+    
+    # Set apt preferences to handle potential conflicts
+    cat > /etc/apt/preferences.d/proxmox-priority << EOF
+Package: pve-*
+Pin: origin "download.proxmox.com"
+Pin-Priority: 1001
+
+Package: *
+Pin: origin "download.proxmox.com"
+Pin-Priority: 501
+EOF
+    
+    apt-get update
+  fi
+}
+
 # Print banner
 echo "================================================================"
 echo "       Automated Proxmox VE Installation Script"
 echo "       For Homelab Automation Project"
 echo "================================================================"
 echo ""
+
+# Detect distribution
+detect_distro
 
 # Function to detect primary network interface
 detect_primary_interface() {
@@ -168,6 +288,9 @@ fi
 echo "Updating system packages..."
 apt update && apt upgrade -y
 
+# Handle dependencies and conflicts
+handle_dependencies
+
 # Install prerequisites
 echo "Installing prerequisites..."
 apt install -y sudo curl wget gnupg2 software-properties-common apt-transport-https ca-certificates
@@ -180,9 +303,41 @@ wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | a
 # Update repositories with new Proxmox source
 apt update
 
+# If there are conflicts during 'apt update', try to fix them
+if [ $? -ne 0 ]; then
+  echo "Repository update failed. Attempting to fix issues..."
+  apt-get --fix-broken install
+  apt update
+fi
+
 # Install Proxmox VE packages (without postfix)
 echo "Installing Proxmox VE packages (this may take a while)..."
-DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi
+# Try to handle dependency conflicts with some advanced options
+if $PARROT_SYSTEM || [[ "$DISTRO_NAME" != "debian" ]]; then
+  echo "Using special installation options for non-standard Debian system..."
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" proxmox-ve postfix open-iscsi
+  
+  # If install fails, try with --no-install-recommends
+  if [ $? -ne 0 ]; then
+    echo "Standard installation failed. Trying alternative installation method..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends proxmox-ve
+    DEBIAN_FRONTEND=noninteractive apt-get install -y postfix open-iscsi
+  fi
+  
+  # If still having issues, try installing individual packages
+  if [ $? -ne 0 ]; then
+    echo "Alternative installation failed. Trying component-by-component installation..."
+    for pkg in pve-manager pve-kernel-5.15 pve-container qemu-server libpve-storage-perl libpve-access-control postfix open-iscsi; do
+      DEBIAN_FRONTEND=noninteractive apt-get install -y $pkg || echo "Failed to install $pkg - continuing anyway"
+    done
+  fi
+else
+  # Standard installation for Debian
+  DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi
+fi
+
+# Attempt to fix any broken installations
+apt-get -f install
 
 # Health check function to verify installation
 health_check() {
