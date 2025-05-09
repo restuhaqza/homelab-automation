@@ -93,6 +93,7 @@ If you encounter issues:
 ### Phase 1: Core Infrastructure
 - [x] XRDP Multi-Session Setup for Linux servers
 - [x] Proxmox VE installation and initial configuration
+- [x] Code-Server (VS Code in browser) installation 
 - [ ] Docker and Portainer deployment script
 - [ ] Infrastructure network configuration (VLANs, firewall setup)
 - [ ] Basic monitoring with Prometheus and Grafana
