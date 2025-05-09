@@ -78,6 +78,42 @@ If you encounter issues:
   ls -la /home/yourusername
   ```
 
+## Project Roadmap
+
+### Phase 1: Core Infrastructure
+- [x] XRDP Multi-Session Setup for Linux servers
+- [ ] Proxmox VE installation and initial configuration
+- [ ] Docker and Portainer deployment script
+- [ ] Infrastructure network configuration (VLANs, firewall setup)
+- [ ] Basic monitoring with Prometheus and Grafana
+
+### Phase 2: Service Deployment
+- [ ] Reverse proxy setup (Nginx/Traefik) with SSL automation
+- [ ] Centralized authentication system (LDAP/Active Directory)
+- [ ] VPN server configuration (WireGuard/OpenVPN)
+- [ ] NAS/storage management setup (TrueNAS/OpenMediaVault)
+- [ ] Automated backup solutions
+
+### Phase 3: Infrastructure as Code
+- [ ] Ansible playbooks for consistent server configuration
+- [ ] Terraform templates for VM/container provisioning
+- [ ] CI/CD pipeline setup (Jenkins/GitHub Actions)
+- [ ] Secret management with HashiCorp Vault
+- [ ] Automated testing and validation
+
+### Phase 4: Service Enhancement
+- [ ] Media server deployment (Plex/Jellyfin/Emby)
+- [ ] Home automation server (Home Assistant)
+- [ ] Documentation system (WikiJS/Bookstack)
+- [ ] Dashboard for services (Heimdall/Homer)
+- [ ] Log aggregation and analysis
+
+### Suggested Hardware Infrastructure
+- **Compute**: Dell Optiplex, HP EliteDesk, or Intel NUCs
+- **Network**: Managed switch with VLAN support, decent router
+- **Storage**: NAS solution or direct-attached storage arrays
+- **Connectivity**: UPS for power management, reliable networking equipment
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
