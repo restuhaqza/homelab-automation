@@ -94,6 +94,7 @@ If you encounter issues:
 - [x] XRDP Multi-Session Setup for Linux servers
 - [x] Proxmox VE installation and initial configuration
 - [x] Code-Server (VS Code in browser) installation 
+- [x] Nginx web server and reverse proxy setup
 - [ ] Docker and Portainer deployment script
 - [ ] Infrastructure network configuration (VLANs, firewall setup)
 - [ ] Basic monitoring with Prometheus and Grafana
