@@ -4,6 +4,22 @@
 # This script automates the installation of Proxmox VE on Debian-based systems
 # Target hardware: Lenovo ThinkCentre m720q with Core i7-8700T
 
+# Setup logging
+INSTALL_LOG="/var/log/proxmox-install-$(date +%Y%m%d-%H%M%S).log"
+FINAL_LOG="/root/proxmox-installation.log"
+
+# Execute the entire script with logging
+# This redirects all stdout and stderr to both the console and log file
+exec > >(tee -a "$INSTALL_LOG") 2>&1
+
+echo "================================================================"
+echo "       Automated Proxmox VE Installation Script"
+echo "       For Homelab Automation Project"
+echo "================================================================"
+echo "Installation started at $(date)"
+echo "Logging installation to $INSTALL_LOG"
+echo ""
+
 # Check if script is run as root
 if [ "$EUID" -ne 0 ]; then
   echo "Please run this script as root"
@@ -594,6 +610,11 @@ else
 fi
 echo "Default login: root (with your system's root password)"
 echo "================================================================"
+
+# Save a copy of the log to /root for future reference
+cp "$INSTALL_LOG" "$FINAL_LOG"
+echo "Installation log saved to $FINAL_LOG"
+echo "Installation log also available at $INSTALL_LOG"
 
 # Reboot
 sleep 10
