@@ -51,43 +51,14 @@ if [ -f "$SCRIPT_DIR/install-proxmox.sh" ]; then
     echo "Step 2b: Attempting manual Proxmox installation..."
     # Try direct installation
     echo "Adding Proxmox Repository..."
-    # Check if Bookworm repository exists
-    if curl -s --head --fail "http://download.proxmox.com/debian/pve/dists/bookworm/" > /dev/null; then
-      echo "Proxmox VE repository for Bookworm found! Using native Debian 12 packages."
-      echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
-      # Download and add the repository key (may need the bookworm key)
-      wget -q -O - http://download.proxmox.com/debian/proxmox-release-bookworm.gpg | apt-key add - 2>/dev/null || \
-      wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | apt-key add -
-    else
-      echo "No Proxmox VE repository for Bookworm found. Using Bullseye packages with compatibility layer."
-      echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
-      # Download and add the repository key
-      wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | apt-key add -
-    fi
+    echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
+    # Download and add the repository key
+    wget -q -O - http://download.proxmox.com/debian/proxmox-release-bookworm.gpg | apt-key add -
     apt-get update
     
     echo "Installing Proxmox VE packages..."
-    # Check which repository we're using
-    if grep -q "bookworm" /etc/apt/sources.list.d/pve-install-repo.list; then
-      # For Bookworm, use standard installation
-      echo "Using native Bookworm packages - standard installation..."
-      DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi
-    else
-      # For Bullseye, we need more options and fallbacks
-      echo "Using Bullseye packages with compatibility layer..."
-      # First try normal installation
-      if ! DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi; then
-        echo "Standard installation failed. Trying with more options..."
-        # Try with force options
-        if ! DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" proxmox-ve postfix open-iscsi; then
-          echo "Forced installation failed. Trying component-by-component installation..."
-          # Try individual components
-          for pkg in pve-manager pve-kernel-5.15 pve-firmware pve-container qemu-server libpve-storage-perl libpve-access-control proxmox-widget-toolkit pve-docs postfix open-iscsi; do
-            DEBIAN_FRONTEND=noninteractive apt-get install -y $pkg || echo "Failed to install $pkg - continuing anyway"
-          done
-        fi
-      fi
-    fi
+    echo "Using native Bookworm packages - standard installation..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi
     
     # Ensure services are enabled
     systemctl daemon-reload
@@ -153,13 +124,6 @@ if [ "$INSTALLATION_SUCCESS" = false ]; then
   echo "   Please check the logs and consider manual fixes."
 else
   echo "✅ Proxmox VE installation verification completed successfully."
-fi
-
-# Clean up temporary Debian repo (we kept it during installation for dependencies)
-echo "Cleaning up temporary Debian repository..."
-if [ -f /etc/apt/sources.list.d/debian-bullseye-temp.list ]; then
-  rm /etc/apt/sources.list.d/debian-bullseye-temp.list
-  apt-get update
 fi
 
 # Save a copy of the log to /root for future reference

@@ -102,69 +102,197 @@ mkdir -p /var/www/html/$DEFAULT_SERVER_NAME/public
 echo "Setting up default index page..."
 cat > /var/www/html/$DEFAULT_SERVER_NAME/public/index.html << EOF
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Welcome to Homelab Server</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restricted Area | Kawasan Berbahaya</title>
     <style>
-        body {
-            width: 35em;
-            margin: 0 auto;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            padding: 2em;
-            background-color: #f5f5f5;
-            color: #333;
+        :root {
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+            --primary-color: #cc0000;
+            --secondary-color: #870000;
+            --border-color: #ddd;
+            --container-bg: #fff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --warning-bg: rgba(204, 0, 0, 0.1);
         }
+        
         @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #222;
-                color: #f0f0f0;
-            }
-            a {
-                color: #6ea8fe;
-            }
-            a:visited {
-                color: #b589ec;
+            :root {
+                --bg-color: #121212;
+                --text-color: #e0e0e0;
+                --primary-color: #ff4444;
+                --secondary-color: #cc0000;
+                --border-color: #333;
+                --container-bg: #1e1e1e;
+                --shadow-color: rgba(0, 0, 0, 0.4);
+                --warning-bg: rgba(204, 0, 0, 0.2);
             }
         }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background-color: var(--container-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .warning-tape {
+            background: repeating-linear-gradient(
+                45deg,
+                var(--primary-color),
+                var(--primary-color) 10px,
+                var(--secondary-color) 10px,
+                var(--secondary-color) 20px
+            );
+            height: 20px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
         h1 {
-            color: #486;
-            font-size: 2em;
-            margin-bottom: 0.5em;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
+        
+        .subtitle {
+            font-size: 1.5em;
+            font-weight: normal;
+            margin-bottom: 5px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .warning-box {
+            background-color: var(--warning-bg);
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
         ul {
-            list-style-type: square;
-            padding-left: 1.2em;
+            list-style-type: none;
+            margin: 20px 0;
         }
+        
+        ul li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        ul li:before {
+            content: "⚠️";
+            margin-right: 10px;
+        }
+        
         .footer {
-            margin-top: 2em;
+            margin-top: 20px;
             font-size: 0.8em;
             color: #777;
-            border-top: 1px solid #ddd;
-            padding-top: 1em;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+        
+        .button {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        
+        .button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
         }
     </style>
 </head>
 <body>
-    <h1>Welcome to your Homelab Server!</h1>
-    <p>If you see this page, the Nginx web server is successfully installed and working.</p>
-
-    <h2>System Details:</h2>
-    <ul>
-        <li>Hostname: $(hostname)</li>
-        <li>IP Address: $(hostname -I | awk '{print $1}')</li>
-        <li>Nginx Version: $(nginx -v 2>&1 | cut -d'/' -f2)</li>
-        <li>Operating System: $(grep PRETTY_NAME /etc/os-release | cut -d'"' -f2)</li>
-    </ul>
-
-    <h2>Quick Links:</h2>
-    <ul>
-        <li><a href="/status">Server Status</a></li>
-        <li><a href="https://github.com/yourusername/homelab-automation">Homelab Automation</a></li>
-    </ul>
-
-    <div class="footer">
-        Powered by Nginx | $(date)
+    <div class="container">
+        <div class="warning-tape"></div>
+        <div class="header">
+            <h1 class="pulse">RESTRICTED AREA</h1>
+            <p class="subtitle">KAWASAN BERBAHAYA</p>
+        </div>
+        <div class="warning-tape"></div>
+        
+        <div class="content">
+            <div class="warning-box">
+                <p>This server is a part of a private homelab infrastructure. Unauthorized access is strictly prohibited and may be subject to monitoring, logging, and legal action.</p>
+            </div>
+            
+            <h2>System Details:</h2>
+            <ul>
+                <li>Hostname: $(hostname)</li>
+                <li>IP Address: $(hostname -I | awk '{print $1}')</li>
+                <li>Nginx Version: $(nginx -v 2>&1 | cut -d'/' -f2)</li>
+                <li>Operating System: $(grep PRETTY_NAME /etc/os-release | cut -d'"' -f2)</li>
+            </ul>
+            
+            <h2>Access Information:</h2>
+            <ul>
+                <li>Server Status: <a href="/status">Status Page</a> (authorized users only)</li>
+                <li>Access Time: $(date)</li>
+                <li>Your IP: \${remote_addr}</li>
+            </ul>
+            
+            <a href="javascript:history.back()" class="button">Go Back</a>
+        </div>
+        
+        <div class="footer">
+            Powered by Homelab Automation
+        </div>
     </div>
 </body>
 </html>
