@@ -18,51 +18,43 @@ echo ""
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR" || exit 1
 
-# Add Debian Bullseye repository for compatibility packages
-echo "Adding Debian Bullseye repository for compatibility packages..."
-echo "deb http://deb.debian.org/debian bullseye main contrib" > /etc/apt/sources.list.d/debian-bullseye-temp.list
-
 # Create APT preferences to prioritize the host system's packages
 cat > /etc/apt/preferences.d/99-prefer-current << EOF
 Package: *
 Pin: release n=bookworm
 Pin-Priority: 900
-
-Package: *
-Pin: release n=bullseye
-Pin-Priority: 100
 EOF
 
 # Update apt
 apt-get update
 
 echo "1. Installing libssl1.1 (required by Proxmox)"
-echo "Downloading libssl1.1 from Debian Bullseye repositories..."
-wget -q http://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1w-0+deb11u2_amd64.deb
-dpkg -i libssl1.1_1.1.1w-0+deb11u2_amd64.deb || apt-get -f install -y
+apt-get install -y libssl1.1 || {
+  echo "Installing libssl1.1 from available sources..."
+  # Try to find a compatible libssl1.1 package
+  apt-get install -y libssl-dev
+}
 
 echo "2. Creating compatibility layer for Perl API"
-# Skip this if using Bookworm repo
-if [ "$USING_BOOKWORM_REPO" != "true" ]; then
-  # Need to create compatibility symlinks for perl
-  if [ ! -e /usr/lib/x86_64-linux-gnu/perl5/5.32/ ]; then
-    echo "Creating Perl 5.32 compatibility directory..."
-    mkdir -p /usr/lib/x86_64-linux-gnu/perl5/5.32/
-  fi
+# Need to create compatibility symlinks for perl
+if [ ! -e /usr/lib/x86_64-linux-gnu/perl5/5.32/ ]; then
+  echo "Creating Perl 5.32 compatibility directory..."
+  mkdir -p /usr/lib/x86_64-linux-gnu/perl5/5.32/
+fi
 
-  # If using Perl 5.36 on Bookworm, create symlinks from 5.36 to 5.32
-  CURRENT_PERL=$(perl -e 'print $^V' | sed 's/v//')
-  echo "Current Perl version: $CURRENT_PERL"
+# If using Perl 5.36 on Bookworm, create symlinks from 5.36 to 5.32
+CURRENT_PERL=$(perl -e 'print $^V' | sed 's/v//')
+echo "Current Perl version: $CURRENT_PERL"
 
-  if [[ "$CURRENT_PERL" == 5.36* ]]; then
-    echo "Creating Perl 5.32 compatibility links from Perl 5.36..."
-    # Create necessary symlinks for perlapi
-    ln -sf /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/lib/x86_64-linux-gnu/perl-5.32
-    ln -sf /usr/lib/x86_64-linux-gnu/libperl.so.5.36 /usr/lib/x86_64-linux-gnu/libperl.so.5.32
-    # Create a fake perlapi provider
-    echo "Creating perlapi-5.32.1 package..."
-    mkdir -p perlapi-5.32.1/DEBIAN
-    cat > perlapi-5.32.1/DEBIAN/control << EOL
+if [[ "$CURRENT_PERL" == 5.36* ]]; then
+  echo "Creating Perl 5.32 compatibility links from Perl 5.36..."
+  # Create necessary symlinks for perlapi
+  ln -sf /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/lib/x86_64-linux-gnu/perl-5.32
+  ln -sf /usr/lib/x86_64-linux-gnu/libperl.so.5.36 /usr/lib/x86_64-linux-gnu/libperl.so.5.32
+  # Create a fake perlapi provider
+  echo "Creating perlapi-5.32.1 package..."
+  mkdir -p perlapi-5.32.1/DEBIAN
+  cat > perlapi-5.32.1/DEBIAN/control << EOL
 Package: perlapi-5.32.1
 Version: 5.32.1
 Section: perl
@@ -74,43 +66,28 @@ Maintainer: ParrotOS Team
 Description: Compatibility package for perlapi-5.32.1
  Provides compatibility for Proxmox with Perl 5.36
 EOL
-    dpkg-deb --build perlapi-5.32.1
-    dpkg -i perlapi-5.32.1.deb
-  fi
-else
-  echo "Using Bookworm repository - skipping Perl compatibility layer"
+  dpkg-deb --build perlapi-5.32.1
+  dpkg -i perlapi-5.32.1.deb
 fi
 
 echo "3. Installing libgnutlsxx28"
-wget -q http://ftp.debian.org/debian/pool/main/g/gnutls28/libgnutlsxx28_3.7.1-5+deb11u3_amd64.deb
-wget -q http://ftp.debian.org/debian/pool/main/g/gnutls28/libgnutls30_3.7.1-5+deb11u3_amd64.deb
-dpkg -i libgnutls30_3.7.1-5+deb11u3_amd64.deb || apt-get -f install -y
-dpkg -i libgnutlsxx28_3.7.1-5+deb11u3_amd64.deb || apt-get -f install -y
+apt-get install -y libgnutlsxx28 libgnutls30 || {
+  echo "Installing gnutls from available sources..."
+  apt-get install -y libgnutls-openssl27 libgnutls28-dev
+}
 
 echo "4. Installing liburing1"
-apt-get install -y liburing1 || true
-if ! dpkg -l | grep -q liburing1; then
-  wget -q http://ftp.debian.org/debian/pool/main/libu/liburing/liburing1_0.7-3+deb11u1_amd64.deb
-  dpkg -i liburing1_0.7-3+deb11u1_amd64.deb || apt-get -f install -y
-fi
+apt-get install -y liburing1 || {
+  echo "Installing liburing from available sources..."
+  apt-get install -y liburing-dev
+}
 
 echo "5. Setting up Proxmox repositories"
-# Check if Bookworm repository exists
-if curl -s --head --fail "http://download.proxmox.com/debian/pve/dists/bookworm/" > /dev/null; then
-  echo "Proxmox VE repository for Bookworm found! Using native Debian 12 packages."
-  echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
-  # Download and add the repository key (may need the bookworm key)
-  wget -q -O - http://download.proxmox.com/debian/proxmox-release-bookworm.gpg | apt-key add - 2>/dev/null || \
-  wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | apt-key add -
-  # No need for most compatibility packages if using Bookworm repo
-  USING_BOOKWORM_REPO=true
-else
-  echo "No Proxmox VE repository for Bookworm found. Using Bullseye packages with compatibility layer."
-  echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
-  # Download and add the repository key
-  wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | apt-key add -
-  USING_BOOKWORM_REPO=false
-fi
+echo "Proxmox VE repository for Bookworm - using native Debian 12 packages."
+echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
+# Download and add the repository key
+wget -q -O - http://download.proxmox.com/debian/proxmox-release-bookworm.gpg | apt-key add -
+USING_BOOKWORM_REPO=true
 
 # Create a dummy enterprise repository to prevent errors
 touch /etc/apt/sources.list.d/pve-enterprise.list
@@ -127,7 +104,6 @@ EOF
 apt-get update
 
 echo "6. Preparing for QEmu compatibility"
-# If bookworm's QEmu is causing issues, we need compatibility layers
 # Install some prerequisites for building
 apt-get install -y build-essential libncurses-dev pkg-config libelf-dev flex bison
 apt-get install -y qemu-system-x86 qemu-utils
@@ -142,7 +118,7 @@ apt-get -f install -y
 
 echo "8. Creating pve-qemu-kvm compatibility layer"
 # Create a dummy pve-qemu-kvm package if direct installation fails
-if [ "$USING_BOOKWORM_REPO" != "true" ] && ! dpkg -l | grep -q pve-qemu-kvm; then
+if ! dpkg -l | grep -q pve-qemu-kvm; then
   echo "Creating compatibility package for pve-qemu-kvm..."
   mkdir -p pve-qemu-kvm-dummy/DEBIAN
   cat > pve-qemu-kvm-dummy/DEBIAN/control << EOL
@@ -162,15 +138,9 @@ EOL
 fi
 
 echo "9. Installing Proxmox packages with force options"
-# Try various installation methods
-if [ "$USING_BOOKWORM_REPO" = "true" ]; then
-  echo "Using native Bookworm packages - installing proxmox-ve..."
-  apt-get install -y proxmox-ve postfix open-iscsi
-else
-  echo "Using compatibility layer for Bullseye packages..."
-  apt-get install -y --no-install-recommends proxmox-ve || true
-  apt-get install -y -o Dpkg::Options::="--force-overwrite" -o Dpkg::Options::="--force-confnew" proxmox-ve || true
-fi
+# Try installation with native Bookworm packages
+echo "Using native Bookworm packages - installing proxmox-ve..."
+apt-get install -y proxmox-ve postfix open-iscsi
 
 echo "10. Preparing for PVE service initialization"
 # Create required directories if they don't exist

@@ -4,7 +4,7 @@ This guide covers the automated installation of Proxmox VE on your homelab hardw
 
 ## Prerequisites
 
-- Debian-based system (preferably a clean Debian 11 Bullseye installation)
+- Debian-based system (preferably a clean Debian 12 Bookworm installation)
 - Root access to the system
 - Internet connectivity for downloading packages
 - Dedicated machine (recommended) - Lenovo ThinkCentre m720q in our case

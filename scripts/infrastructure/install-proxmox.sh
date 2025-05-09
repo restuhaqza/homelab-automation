@@ -124,9 +124,6 @@ handle_dependencies() {
   if $PARROT_SYSTEM; then
     echo "ParrotSec-specific preparations:"
     echo "  - Ensuring standard repositories are available"
-    if ! grep -q "deb http://deb.debian.org/debian bullseye main" /etc/apt/sources.list; then
-      echo "deb http://deb.debian.org/debian bullseye main" >> /etc/apt/sources.list
-    fi
     
     # Set apt preferences to handle potential conflicts
     cat > /etc/apt/preferences.d/proxmox-priority << EOF
@@ -313,8 +310,8 @@ apt install -y sudo curl wget gnupg2 software-properties-common apt-transport-ht
 
 # Add Proxmox VE repository
 echo "Adding Proxmox VE repository..."
-echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
-wget -q -O - http://download.proxmox.com/debian/proxmox-release-bullseye.gpg | apt-key add -
+echo "deb [arch=amd64] http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-install-repo.list
+wget -q -O - http://download.proxmox.com/debian/proxmox-release-bookworm.gpg | apt-key add -
 
 # Update repositories with new Proxmox source
 apt update
