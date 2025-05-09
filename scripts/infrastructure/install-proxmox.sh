@@ -324,7 +324,25 @@ EOF
 
 # Set up local storage
 echo "Configuring local storage..."
-pvesm set local --content backup,iso,vztmpl
+if command -v pvesm &> /dev/null; then
+  pvesm set local --content backup,iso,vztmpl
+else
+  echo "Warning: pvesm command not found. Will attempt to fix this issue."
+  
+  # Try to install the missing package
+  echo "Installing proxmox-ve meta-package again to ensure all components are present..."
+  apt-get install -y proxmox-ve
+  
+  # Try to find and configure storage manually if pvesm still not available
+  if command -v pvesm &> /dev/null; then
+    echo "pvesm is now available, configuring storage..."
+    pvesm set local --content backup,iso,vztmpl
+  else
+    echo "Error: pvesm command still not available."
+    echo "Manual storage configuration may be required after installation."
+    echo "After reboot, check if /etc/pve directory exists and verify installation."
+  fi
+fi
 
 # Final update
 echo "Running final system update..."
