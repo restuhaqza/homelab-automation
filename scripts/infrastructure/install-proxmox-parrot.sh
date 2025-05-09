@@ -135,6 +135,13 @@ else
   echo "✅ Proxmox VE installation verification completed successfully."
 fi
 
+# Clean up temporary Debian repo (we kept it during installation for dependencies)
+echo "Cleaning up temporary Debian repository..."
+if [ -f /etc/apt/sources.list.d/debian-bullseye-temp.list ]; then
+  rm /etc/apt/sources.list.d/debian-bullseye-temp.list
+  apt-get update
+fi
+
 # Save a copy of the log to /root for future reference
 cp "$INSTALL_LOG" "$FINAL_LOG"
 echo "Installation log saved to $FINAL_LOG"
