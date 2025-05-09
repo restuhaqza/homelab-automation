@@ -30,6 +30,16 @@ detect_primary_interface() {
   echo $PRIMARY_INTERFACE
 }
 
+# Function to check if an interface is wireless
+is_wireless_interface() {
+  local interface=$1
+  if [ -d "/sys/class/net/$interface/wireless" ] || [ -L "/sys/class/net/$interface/phy80211" ]; then
+    return 0  # True, it is a wireless interface
+  else
+    return 1  # False, not a wireless interface
+  fi
+}
+
 # Function to get current network configuration
 get_current_network_config() {
   local interface=$1
@@ -174,20 +184,83 @@ apt update
 echo "Installing Proxmox VE packages (this may take a while)..."
 DEBIAN_FRONTEND=noninteractive apt-get install -y proxmox-ve postfix open-iscsi
 
+# Health check function to verify installation
+health_check() {
+  echo "Performing health check..."
+  local issues=0
+
+  # Check if critical PVE services are running
+  echo "Checking critical services..."
+  for service in pve-cluster pvedaemon pveproxy pvestatd; do
+    if systemctl is-active --quiet $service; then
+      echo "  ✓ $service is running"
+    else
+      echo "  ✗ $service is not running"
+      issues=$((issues+1))
+    fi
+  done
+
+  # Check if qemu/kvm is available
+  if [ -e /dev/kvm ]; then
+    echo "  ✓ KVM virtualization is available"
+  else
+    echo "  ✗ KVM virtualization is not available"
+    issues=$((issues+1))
+  fi
+
+  # Check disk space
+  echo "Checking available disk space..."
+  local available_space=$(df -h / | awk 'NR==2 {print $4}')
+  echo "  ✓ Available disk space: $available_space"
+
+  # Check memory
+  echo "Checking available memory..."
+  local available_mem=$(free -h | awk '/^Mem:/ {print $7}')
+  echo "  ✓ Available memory: $available_mem"
+
+  # Verify API connectivity (may not be fully up yet)
+  echo "Checking Proxmox API access..."
+  if pveversion &>/dev/null; then
+    echo "  ✓ PVE version command works"
+  else
+    echo "  ✗ PVE version command failed"
+    issues=$((issues+1))
+  fi
+
+  echo "Health check completed with $issues issues found."
+  if [ $issues -gt 0 ]; then
+    echo "Warning: Some issues were detected. Check the logs for more details."
+  else
+    echo "All checks passed successfully!"
+  fi
+}
+
+# Run health check
+health_check
+
 # Setup networking
 echo "Configuring network..."
-if [ "$CONFIG_MODE" = "dhcp" ]; then
-  # Configure for DHCP
-  cat > /etc/network/interfaces << EOF
+if is_wireless_interface "$INTERFACE"; then
+  echo "WARNING: Detected that $INTERFACE is a wireless interface."
+  echo "Proxmox is designed to work with wired connections for stability."
+  echo "The current network configuration will be preserved for WiFi."
+  echo "You may need to configure a wired connection after installation."
+  
+  # Don't modify the network configuration for WiFi
+  # Just verify we can add the hostname to /etc/hosts
+else
+  if [ "$CONFIG_MODE" = "dhcp" ]; then
+    # Configure for DHCP
+    cat > /etc/network/interfaces << EOF
 auto lo
 iface lo inet loopback
 
 auto $INTERFACE
 iface $INTERFACE inet dhcp
 EOF
-else
-  # Configure for static IP
-  cat > /etc/network/interfaces << EOF
+  else
+    # Configure for static IP
+    cat > /etc/network/interfaces << EOF
 auto lo
 iface lo inet loopback
 
@@ -197,6 +270,7 @@ iface $INTERFACE inet static
         netmask $NETMASK
         gateway $GATEWAY
 EOF
+  fi
 fi
 
 # Update hosts file
