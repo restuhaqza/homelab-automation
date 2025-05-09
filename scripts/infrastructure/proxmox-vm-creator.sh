@@ -31,14 +31,19 @@ INTERACTIVE=true
 
 # Array of common ISO images with download URLs
 declare -A ISO_URLS
-ISO_URLS["ubuntu-22.04-live-server-amd64.iso"]="https://releases.ubuntu.com/22.04/ubuntu-22.04.3-live-server-amd64.iso"
-ISO_URLS["debian-12-amd64-netinst.iso"]="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.4.0-amd64-netinst.iso"
+ISO_URLS["ubuntu-22.04-live-server-amd64.iso"]="https://releases.ubuntu.com/22.04/ubuntu-22.04.5-live-server-amd64.iso"
+ISO_URLS["ubuntu-23.10-live-server-amd64.iso"]="https://old-releases.ubuntu.com/releases/mantic/ubuntu-23.10-live-server-amd64.iso"
+ISO_URLS["ubuntu-24.04-live-server-amd64.iso"]="https://releases.ubuntu.com/24.04/ubuntu-24.04.2-live-server-amd64.iso"
+ISO_URLS["debian-12.5-amd64-netinst.iso"]="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.5.0-amd64-netinst.iso"
+ISO_URLS["almalinux-9-latest-x86_64-minimal.iso"]="https://repo.almalinux.org/almalinux/9/isos/x86_64/AlmaLinux-9-latest-x86_64-minimal.iso"
+ISO_URLS["almalinux-8-latest-x86_64-minimal.iso"]="https://repo.almalinux.org/almalinux/8/isos/x86_64/AlmaLinux-8-latest-x86_64-minimal.iso"
 ISO_URLS["centos-stream-9-dvd.iso"]="https://mirrors.centos.org/mirrorlist?path=/9-stream/BaseOS/x86_64/iso/CentOS-Stream-9-latest-x86_64-dvd1.iso&redirect=1"
-ISO_URLS["alpine-virt-3.19.0-x86_64.iso"]="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-virt-3.19.0-x86_64.iso"
-ISO_URLS["fedora-workstation-38.iso"]="https://download.fedoraproject.org/pub/fedora/linux/releases/38/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-38-1.6.iso"
+ISO_URLS["alpine-virt-3.19.0-x86_64.iso"]="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-virt-3.19.1-x86_64.iso"
+ISO_URLS["fedora-workstation-39.iso"]="https://download.fedoraproject.org/pub/fedora/linux/releases/39/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-39-1.5.iso"
 ISO_URLS["freebsd-13.2-release-amd64.iso"]="https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/13.2/FreeBSD-13.2-RELEASE-amd64-disc1.iso"
 ISO_URLS["archlinux-2023.03.01-x86_64.iso"]="https://geo.mirror.pkgbuild.com/iso/latest/archlinux-x86_64.iso"
-ISO_URLS["proxmox-ve_7.4-1.iso"]="https://enterprise.proxmox.com/iso/proxmox-ve_7.4-1.iso"
+ISO_URLS["proxmox-ve_7.4-1.iso"]="http://download.proxmox.com/iso/proxmox-ve_7.4-1.iso"
+ISO_URLS["proxmox-ve_8.4-1.iso"]="http://download.proxmox.com/iso/proxmox-ve_8.4-1.iso"
 
 # Function to check requirements
 check_requirements() {
